@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'self'; font-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>GenoKit — Genotype QC</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main>
+    <!-- Collapsible Input & QC Configuration Panel -->
+    <section id="inputPanel" class="inputPanel is-expanded" aria-label="PLINK input and QC configuration">
+      <div id="inputToggle" class="inputBar" role="button" tabindex="0" aria-expanded="true" aria-controls="inputPanelBody">
+        <span class="inputBarLead">
+          <span class="inputBarIcon" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <line x1="2" y1="4" x2="14" y2="4" stroke-linecap="round"/>
+              <circle cx="5" cy="4" r="1.5" fill="currentColor"/>
+              <line x1="2" y1="8" x2="14" y2="8" stroke-linecap="round"/>
+              <circle cx="11" cy="8" r="1.5" fill="currentColor"/>
+              <line x1="2" y1="12" x2="14" y2="12" stroke-linecap="round"/>
+              <circle cx="7" cy="12" r="1.5" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="titleWithHelp">
+            <span class="panelTitle">Input &amp; thresholds</span>
+            <span class="helpTip" tabindex="0" aria-label="About input and quality control configuration">
+              <span aria-hidden="true">?</span>
+              <span class="helpBubble" role="tooltip">Load PLINK binary filesets (.bed, .bim, .fam) or text filesets (.ped, .map), configure genotype missingness and MAF filtering thresholds, then run streaming QC.</span>
+            </span>
+          </span>
+        </span>
+        <span id="inputSummary" class="collapseSummary">No files loaded</span>
+        <span class="chevron" aria-hidden="true"></span>
+      </div>
+
+      <div id="inputPanelBody" class="inputBody">
+        <!-- File Drop Row -->
+        <div class="fileRow">
+          <button type="button" id="chooseFileButton" class="fileDropZone" aria-label="Choose or drop genotype files (.bed/.bim/.fam)">
+            <span class="fileDropMain">
+              <span class="fileDropTitle">Choose files</span>
+              <span class="fileDropHint">or drop .bed, .bim, .fam together (GUI; .ped/.map → CLI)</span>
+            </span>
+            <span class="fileBadges">
+              <span id="badgeBed" class="fileBadge">BED</span>
+              <span id="badgeBim" class="fileBadge">BIM</span>
+              <span id="badgeFam" class="fileBadge">FAM</span>
+            </span>
+            <span id="fileName" class="fileDropName">No files loaded</span>
+          </button>
+          <button type="button" id="clearButton" class="fileClearButton">Clear</button>
+        </div>
+        <input id="fileInput" type="file" multiple accept=".bed,.bim,.fam,.ped,.map" hidden>
+
+        <!-- QC Parameters Grid with ? Hover Tooltips and Zero Stray Small Text -->
+        <div class="grid">
+          <!-- Parameter 1: Mind -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Sample missingness (--mind)</span>
+              <span class="helpTip" tabindex="0" aria-label="About sample missingness">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Exclude individuals with missing genotype rate &gt; threshold (PLINK --mind). Enable the filter, then set the threshold. For example, 0.10 removes individuals missing more than 10% of genotype calls.</span>
+              </span>
+            </span>
+            <div class="optionalNumberControl">
+              <input type="checkbox" id="mindEnabledInput" aria-label="Enable sample missingness filtering" checked>
+              <input type="number" id="mindInput" min="0" max="1" step="0.1" value="0.1" aria-label="Sample missingness threshold">
+            </div>
+          </label>
+
+          <!-- Parameter 2: Geno -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Variant missingness (--geno)</span>
+              <span class="helpTip" tabindex="0" aria-label="About variant missingness">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Exclude variants with missing call rate &gt; threshold (PLINK --geno). Enable the filter, then set the threshold. For example, 0.05 removes variants missing more than 5% of calls among retained samples.</span>
+              </span>
+            </span>
+            <div class="optionalNumberControl">
+              <input type="checkbox" id="genoEnabledInput" aria-label="Enable variant missingness filtering" checked>
+              <input type="number" id="genoInput" min="0" max="1" step="0.01" value="0.05" aria-label="Variant missingness threshold">
+            </div>
+          </label>
+
+          <!-- Parameter 3: HWE -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Hardy-Weinberg equilibrium (--hwe)</span>
+              <span class="helpTip" tabindex="0" aria-label="About Hardy-Weinberg equilibrium filtering">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">PLINK-compatible exact test. When enabled, variants with founder/control HWE p-value below the threshold are excluded. A low threshold such as 1e-6 is recommended.</span>
+              </span>
+            </span>
+            <div class="optionalNumberControl">
+              <input type="checkbox" id="hweEnabledInput" aria-label="Enable HWE filtering">
+              <input type="number" id="hweInput" min="0" max="1" step="0.000001" value="0.000001" aria-label="HWE p-value threshold" disabled>
+            </div>
+          </label>
+
+          <!-- Parameter 4: MAF -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Minor allele freq (--maf)</span>
+              <span class="helpTip" tabindex="0" aria-label="About minor allele frequency">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Exclude variants with minor allele frequency &lt; threshold (PLINK --maf). Enable the filter, then set the threshold. For example, 0.05 excludes rare variants with MAF below 5%.</span>
+              </span>
+            </span>
+            <div class="optionalNumberControl">
+              <input type="checkbox" id="mafEnabledInput" aria-label="Enable MAF filtering" checked>
+              <input type="number" id="mafInput" min="0" max="0.5" step="0.01" value="0.05" aria-label="Minor allele frequency threshold">
+            </div>
+          </label>
+
+          <!-- Parameter 5: Max MAF -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Maximum MAF (--max-maf)</span>
+              <span class="helpTip" tabindex="0" aria-label="About maximum MAF">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Exclude common variants with minor allele frequency &gt; threshold (PLINK --max-maf). Leave unchecked to disable the upper bound.</span>
+              </span>
+            </span>
+            <div class="optionalNumberControl">
+              <input type="checkbox" id="maxMafEnabledInput" aria-label="Enable maximum MAF filtering">
+              <input type="number" id="maxMafInput" min="0" max="0.5" step="0.01" value="0.4" aria-label="Maximum MAF threshold" disabled>
+            </div>
+          </label>
+
+          <!-- Parameter 6: Pipeline Order -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Filter order (--order)</span>
+              <span class="helpTip" tabindex="0" aria-label="About filter order">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Sequential GenoKit filtering pipeline. HWE follows variant missingness and precedes MAF in the default order, matching PLINK's relative variant-filter order.</span>
+              </span>
+            </span>
+            <select id="orderSelect">
+              <option value="mind,geno,hwe,maf" selected>mind → geno → hwe → maf</option>
+              <option value="geno,mind,hwe,maf">geno → mind → hwe → maf</option>
+              <option value="maf,mind,geno,hwe">maf → mind → geno → hwe</option>
+            </select>
+          </label>
+
+          <!-- Parameter 7: Iteration Rounds -->
+          <label>
+            <span class="titleWithHelp">
+              <span>Convergence rounds (--rounds)</span>
+              <span class="helpTip" tabindex="0" aria-label="About convergence rounds">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Maximum iterations through the filtering sequence until no additional individuals or variants are dropped. Default is 1 round.</span>
+              </span>
+            </span>
+            <input type="number" id="roundsInput" min="1" max="10" step="1" value="1">
+          </label>
+
+          <!-- Parameter 8: Export BED/BIM/FAM -->
+          <label class="checkboxLabel">
+            <span class="titleWithHelp">
+              <span>Export filtered files (--make-bed)</span>
+              <span class="helpTip" tabindex="0" aria-label="About make-bed">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">When enabled, GenoKit writes filtered .bed, .bim, and .fam filesets containing only surviving samples and variants via streaming 2-bit repacking.</span>
+              </span>
+            </span>
+            <input type="checkbox" id="makeBedInput" checked>
+          </label>
+        </div>
+
+        <!-- Footer Action -->
+        <div class="footerActions">
+          <button type="button" id="runBtn" class="primary" disabled>Filter genotypes</button>
+          <span id="computeNote" class="muted"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Stack Aligned with PedigreeKit -->
+    <div id="resultsStack" class="resultsStack">
+      <section id="resultsPanel" class="panel" hidden>
+        <div class="panelHead">
+          <div>
+            <div class="eyebrow good">Quality Control</div>
+            <h2 class="titleWithHelp">
+              <span>QC Summary &amp; Distributions</span>
+              <span class="helpTip" tabindex="0" aria-label="About QC summary metrics">
+                <span aria-hidden="true">?</span>
+                <span class="helpBubble" role="tooltip">Summary of sample and variant retention rates, individual missingness, and minor allele frequency calculated strictly according to PLINK 1.9 definitions.</span>
+              </span>
+            </h2>
+          </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="statGrid">
+          <div class="statCard">
+            <span class="statLabel">Retained Samples</span>
+            <span class="statValue good" id="statSamples">—</span>
+          </div>
+          <div class="statCard">
+            <span class="statLabel">Excluded by --mind</span>
+            <span class="statValue bad" id="statMind">—</span>
+          </div>
+          <div class="statCard">
+            <span class="statLabel">Retained Variants</span>
+            <span class="statValue good" id="statVariants">—</span>
+          </div>
+          <div class="statCard">
+            <span class="statLabel">Excluded by --geno</span>
+            <span class="statValue bad" id="statGeno">—</span>
+          </div>
+          <div class="statCard">
+            <span class="statLabel">Excluded by --hwe</span>
+            <span class="statValue bad" id="statHwe">—</span>
+          </div>
+          <div class="statCard">
+            <span class="statLabel">Excluded by --maf</span>
+            <span class="statValue bad" id="statMaf">—</span>
+          </div>
+        </div>
+
+        <!-- Export Toolbar -->
+        <div class="exportToolbar">
+          <span class="exportTitle">Workspace save · local copies:</span>
+          <div id="downloadButtons" class="actions"></div>
+        </div>
+
+        <!-- In-Depth Report Preview -->
+        <article class="structureBlock">
+          <h3>Analysis Report</h3>
+          <div id="reportContainer" class="reportContainer"></div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <!-- Progress Modal Sheet (Matching PedigreeKit) -->
+  <div id="progressModal" class="modal" hidden>
+    <div class="modalBackdrop"></div>
+    <div class="modalSheet glass" role="dialog" aria-modal="true" aria-labelledby="progressTitle" aria-busy="true">
+      <header class="modalHead">
+        <div>
+          <div class="eyebrow">GenoKit QC Engine</div>
+          <h2 id="progressTitle">Filtering genotypes…</h2>
+        </div>
+      </header>
+      <p id="progressDetail" class="modalLead">Streaming PLINK binary passes in WebAssembly…</p>
+      <div class="progressBody">
+        <div class="progressTrack" aria-hidden="true">
+          <div id="progressFill" class="progressFill"></div>
+        </div>
+        <div class="progressMeta">
+          <span id="progressPercent">0%</span>
+          <span id="progressStage">Initializing</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Host -->
+  <div id="toastHost" class="toastHost" aria-live="polite" aria-relevant="additions"></div>
+
+  <script src="execution.js"></script>
+  <script defer src="app.js"></script>
+</body>
+</html>

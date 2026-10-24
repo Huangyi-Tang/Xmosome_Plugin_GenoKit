@@ -1,0 +1,298 @@
+{
+  "manifest_version": 2,
+  "id": "dev.xmosome.geno-kit",
+  "name": "GenoKit",
+  "version": "0.1.3",
+  "description": "Streaming genotype quality control (mind, geno, hwe, maf) for PLINK 1.9 filesets, implemented in portable Rust WebAssembly.",
+  "license": "MIT",
+  "api_version": "1",
+  "command": "genokit",
+  "icon": "icon.svg",
+  "entry": "Sources/GUI/index.html",
+  "wasm": "Runtime/analysis.wasm",
+  "runtime": {
+    "type": "wasi-component",
+    "entry": "Runtime/plugin.component.wasm",
+    "world": "xmosome:plugin/analysis-plugin@1.0.0"
+  },
+  "capabilities": {
+    "gui": true,
+    "cli": true
+  },
+  "agent": {
+    "enabled": true,
+    "primary_operation": "qc",
+    "input_profile": "plink_bfile",
+    "browser_abi": "json_analyze",
+    "file_globs": ["*.bed", "*.bim", "*.fam", "*.ped", "*.map"],
+    "default_parameters": {
+      "mind": 0.1,
+      "geno": 0.05,
+      "maf": 0.05,
+      "order": "mind,geno,hwe,maf",
+      "rounds": 1,
+      "make_bed": false
+    },
+    "aliases": ["genokit", "geno-kit", "plinkit", "plink"],
+    "compact_outputs": true,
+    "pick_mode": "genotype"
+  },
+  "permissions": [
+    "read_input_files",
+    "write_output_files"
+  ],
+  "cli": {
+    "command": "genokit",
+    "description": "Streaming genotype quality control based on PLINK statistical principles.",
+    "long_description": "GenoKit reads PLINK 1.9 binary filesets (.bed, .bim, .fam) using a pure-Rust low-memory streaming decoder. It filters individuals by missingness (--mind), variants by missingness (--geno), Hardy-Weinberg exact test (--hwe), and minor allele frequency (--maf / --max-maf), and optionally outputs filtered BED/BIM/FAM filesets along with an in-depth Markdown QC report.",
+    "operation": "qc",
+    "required_any_of": [
+      ["bfile"],
+      ["bed", "bim", "fam"],
+      ["file"],
+      ["ped", "map"]
+    ],
+    "arguments": [
+      {
+        "id": "bfile",
+        "flags": [
+          "--bfile"
+        ],
+        "type": "string",
+        "required": false,
+        "value_name": "PREFIX",
+        "description": "Prefix for binary fileset (.bed, .bim, .fam)."
+      },
+      {
+        "id": "file",
+        "flags": [
+          "--file"
+        ],
+        "type": "string",
+        "required": false,
+        "value_name": "PREFIX",
+        "description": "Prefix for text fileset (.ped, .map)."
+      },
+      {
+        "id": "ped",
+        "flags": [
+          "--ped"
+        ],
+        "type": "file",
+        "required": false,
+        "value_name": "FILE",
+        "description": "PLINK .ped text genotype file."
+      },
+      {
+        "id": "map",
+        "flags": [
+          "--map"
+        ],
+        "type": "file",
+        "required": false,
+        "value_name": "FILE",
+        "description": "PLINK .map text marker information file."
+      },
+      {
+        "id": "bed",
+        "flags": [
+          "--bed"
+        ],
+        "type": "file",
+        "required": false,
+        "value_name": "FILE",
+        "description": "PLINK .bed binary genotype file."
+      },
+      {
+        "id": "bim",
+        "flags": [
+          "--bim"
+        ],
+        "type": "file",
+        "required": false,
+        "value_name": "FILE",
+        "description": "PLINK .bim variant information file."
+      },
+      {
+        "id": "fam",
+        "flags": [
+          "--fam"
+        ],
+        "type": "file",
+        "required": false,
+        "value_name": "FILE",
+        "description": "PLINK .fam sample information file."
+      },
+      {
+        "id": "mind",
+        "flags": [
+          "--mind"
+        ],
+        "type": "number",
+        "required": false,
+        "default": 0.1,
+        "value_name": "FLOAT",
+        "description": "Exclude individuals with missing genotype rate > threshold (default: 0.1)."
+      },
+      {
+        "id": "geno",
+        "flags": [
+          "--geno"
+        ],
+        "type": "number",
+        "required": false,
+        "default": 0.1,
+        "value_name": "FLOAT",
+        "description": "Exclude variants with missing call rate > threshold (default: 0.1)."
+      },
+      {
+        "id": "hwe",
+        "flags": [
+          "--hwe"
+        ],
+        "type": "number",
+        "required": false,
+        "value_name": "P",
+        "description": "Exclude variants with founder/control Hardy-Weinberg exact-test p-value below P. Disabled when omitted."
+      },
+      {
+        "id": "maf",
+        "flags": [
+          "--maf"
+        ],
+        "type": "number",
+        "required": false,
+        "default": 0.01,
+        "value_name": "FLOAT",
+        "description": "Exclude variants with minor allele frequency < threshold (default: 0.01)."
+      },
+      {
+        "id": "max_maf",
+        "flags": [
+          "--max-maf"
+        ],
+        "type": "number",
+        "required": false,
+        "value_name": "FLOAT",
+        "description": "Exclude variants with minor allele frequency > threshold."
+      },
+      {
+        "id": "order",
+        "flags": [
+          "--order"
+        ],
+        "type": "string",
+        "required": false,
+        "default": "mind,geno,hwe,maf",
+        "value_name": "ORDER",
+        "description": "Filtering order sequence, comma-delimited (default: mind,geno,hwe,maf)."
+      },
+      {
+        "id": "rounds",
+        "flags": [
+          "--rounds"
+        ],
+        "type": "number",
+        "required": false,
+        "default": 1,
+        "value_name": "INT",
+        "description": "Maximum iterations of filtering order until convergence (default: 1)."
+      },
+      {
+        "id": "make_bed",
+        "flags": [
+          "--make-bed"
+        ],
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "value_name": "BOOL",
+        "description": "Write filtered .bed, .bim, and .fam files (default: true)."
+      }
+    ],
+    "outputs": [
+      "report.md \u2014 complete Markdown analysis QC report.",
+      "data/qc-summary.json \u2014 structured metrics before and after filtering.",
+      "data/filtered.fam \u2014 filtered sample list.",
+      "data/filtered.bim \u2014 filtered variant list.",
+      "data/filtered.bed \u2014 filtered binary genotype file (when --make-bed is true)."
+    ],
+    "examples": [
+      "xmosome genokit --bed data.bed --bim data.bim --fam data.fam --mind 0.05 --geno 0.05 --maf 0.01",
+      "xmosome genokit --bfile mydata --mind 0.1 --geno 0.05 --hwe 1e-6 --maf 0.05 --out ./qc_results",
+      "xmosome genokit --bed data.bed --bim data.bim --fam data.fam --order mind,geno,hwe,maf --rounds 2 --json"
+    ]
+  },
+  "hostSymbol": "slider.horizontal.3",
+  "commands": [
+    {
+      "id": "import",
+      "title": "Input & thresholds",
+      "kind": "gui_action"
+    },
+    {
+      "id": "qc",
+      "title": "Quality control",
+      "kind": "view"
+    },
+    {
+      "id": "report",
+      "title": "QC report",
+      "kind": "view"
+    }
+  ],
+  "operations": [
+    {
+      "id": "qc",
+      "description": "PLINK-aligned streaming genotype quality control via Rust WebAssembly.",
+      "permissions": [
+        "read_input_files",
+        "write_output_files"
+      ],
+      "required_inputs": [],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "mind": {
+            "type": "number"
+          },
+          "geno": {
+            "type": "number"
+          },
+          "maf": {
+            "type": "number"
+          },
+          "order": {
+            "type": "string"
+          },
+          "rounds": {
+            "type": "number"
+          },
+          "make_bed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "report": {
+            "type": "object"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  ]
+}

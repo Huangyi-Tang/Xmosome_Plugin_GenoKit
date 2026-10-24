@@ -1,0 +1,26 @@
+package xmosome:plugin@1.0.0;
+
+interface host {
+    record progress-event {
+        fraction: option<f64>,
+        stage: option<string>,
+        message: string,
+    }
+
+    emit-progress: func(event: progress-event);
+    emit-log: func(level: string, message: string);
+}
+
+interface analysis {
+    record plugin-error {
+        code: string,
+        message: string,
+    }
+
+    run: func(request-json: string) -> result<string, plugin-error>;
+}
+
+world analysis-plugin {
+    import host;
+    export analysis;
+}
